@@ -1,7 +1,6 @@
 #include "stm32l476xx.h"
 #include <math.h>
 #include <assert.h>
-#define TIME_SEC 1.03
 
 extern void GPIO_init();
 extern void max7219_init();
@@ -46,24 +45,32 @@ void Timer_start(int TIME){
 
 void INIT_DHT(){
     GPIOC->MODER |= 0b01;       // set as output mode
-    GPIOC->ODR = 0;
-    Timer_start(7200);          // delay for 18ms
+    GPIOC->PUPDR |= 0b01;
+    GPIOC->ODR &= 0xfffffffe;
+    
+    Timer_start(7300);          // delay for 18ms <==> 7200
     while(!(TIM2->SR & 0x00000001)){}
     TIM2->SR &= 0xFFFFFFFE;
+    
     GPIOC->MODER &= 0xfffffffC; // set as input mode
 }
 
 int DHT_RESPONCSCE(){
+    int flag1=0,flag2=0;
     Timer_start(16);
     while(!(TIM2->SR & 0x00000001)){}
     TIM2->SR &= 0xFFFFFFFE;
-    int flag1 = !(GPIOC->IDR & 1);
-    Timer_start(32);
-    while(!(TIM2->SR & 0x00000001)){}
-    TIM2->SR &= 0xFFFFFFFE;
-    int flag2 = (GPIOC->IDR & 1);
+    flag1 = !(GPIOC->IDR & 1);
+    
+    if(flag1){
+        Timer_start(32);
+        while(!(TIM2->SR & 0x00000001)){}
+        TIM2->SR &= 0xFFFFFFFE;
+        flag2 = (GPIOC->IDR & 1);
+    }
+    while(GPIOC->IDR&1){}
 
-    return (flag1 && flag2);
+    return flag2;
 }
 
 void DELAY_TIME(int TIME){
@@ -71,10 +78,10 @@ void DELAY_TIME(int TIME){
     while(i){i-=5;}
 }
 
-uint8_t DHT_READ(void){
-    uint8_t i,j;
+int DHT_READ(void){
+    int i=0,j;
     for(j=0;j<8;j++){
-        while(!(GPIOC->IDR & 1)){}
+        while(!(GPIOC->IDR & 1)){}          // if pc0 ==0 waiting
         
         Timer_start(16);
         while(!(TIM2->SR & 0x00000001)){}
@@ -85,9 +92,21 @@ uint8_t DHT_READ(void){
         } else {
             i|= (1<<(7-j));
         }
-        while(GPIOC->IDR & 1){}
+
+        while(GPIOC->IDR & 1){}             // if pc0 ==1 waiting
     }
     return i;
+}
+
+void DHT_DISPLAY(int RH_Int,int RH_Dec,int Temp_Int,int Temp_Dec){
+    int sum = RH_Int;
+    sum *= 100;
+    sum += RH_Dec;
+    sum *= 100;
+    sum += Temp_Int;
+    sum *= 100;
+    sum += Temp_Dec;
+    MUTIDISPLAY(sum);
 }
 
 int main(){
@@ -102,15 +121,32 @@ int main(){
         int flag = DHT_RESPONCSCE();
 
         if(flag){
-            
             int RH_Int_Data = DHT_READ();
             int RH_Dec_Data = DHT_READ();
             int Temp_Int_Data = DHT_READ();
             int Temp_Dec_Data = DHT_READ();
             int CheckSum = DHT_READ();
-            MUTIDISPLAY(RH_Int_Data);
+            //DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data);
+            int sum = RH_Dec_Data+RH_Int_Data+Temp_Dec_Data+Temp_Int_Data;
+            sum = sum & 0xff;
+            
+            //DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data); 
+            
+            if(sum!=CheckSum) {
+                //MUTIDISPLAY(7414);
+                //DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data);
+            } else {
+                DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data); 
+            }
+            
+            Timer_start(20000);
+            while(!(TIM2->SR & 0x00000001)){}
+            TIM2->SR &= 0xFFFFFFFE;
             
             /*
+            MUTIDISPLAY(Temp_Int_Data);
+            
+        
             MUTIDISPLAY(RH_Dec_Data);
             Timer_start(400000);
             while(!(TIM2->SR & 0x00000001)){}
