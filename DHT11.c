@@ -29,43 +29,44 @@ void DISPLAY_TIME(int TIM_INT,int TIM_FLO){
 }
 
 void Timer_init(){
-    RCC->APB1ENR1 |= RCC_APB1ENR1_TIM2EN;    // enable TIM2
-    TIM2->CR1 = 0;              // upcounter, disable counter, enable UEV(update event)
-    TIM2->CNT = 0;
-    TIM2->PSC = (uint32_t)9;  // 4M == 4000000/10 = 400000
-    TIM2->ARR = (uint32_t)399999;
+    //RCC->APB1ENR1 |= RCC_APB1ENR1_TIM1EN;    // enable TIM1
+    RCC->APB2ENR |= RCC_APB2ENR_TIM1EN;    // enable TIM1
+    TIM1->CR1 = 0;              // upcounter, disable counter, enable UEV(update event)
+    TIM1->CNT = 0;
+    TIM1->PSC = (uint32_t)9;  // 4M == 4000000/10 = 400000
+    TIM1->ARR = (uint32_t)399999;
 }
 
 void Timer_start(int TIME){
-    TIM2->ARR = TIME;
-    TIM2->EGR = 0x0001;    // re init cnt
-    TIM2->SR &= 0xFFFFFFFE;     // set to 0
-    TIM2->CR1 |= 0x00000001;    // enable counter
+    TIM1->ARR = TIME;
+    TIM1->EGR = 0x0001;    // re init cnt
+    TIM1->SR &= 0xFFFFFFFE;     // set to 0
+    TIM1->CR1 |= 0x00000001;    // enable counter
 }
 
 void INIT_DHT(){
     GPIOC->MODER |= 0b01;       // set as output mode
     GPIOC->PUPDR |= 0b01;
     GPIOC->ODR &= 0xfffffffe;
-    
+
     Timer_start(7300);          // delay for 18ms <==> 7200
-    while(!(TIM2->SR & 0x00000001)){}
-    TIM2->SR &= 0xFFFFFFFE;
-    
+    while(!(TIM1->SR & 0x00000001)){}
+    TIM1->SR &= 0xFFFFFFFE;
+
     GPIOC->MODER &= 0xfffffffC; // set as input mode
 }
 
 int DHT_RESPONCSCE(){
     int flag1=0,flag2=0;
     Timer_start(16);
-    while(!(TIM2->SR & 0x00000001)){}
-    TIM2->SR &= 0xFFFFFFFE;
+    while(!(TIM1->SR & 0x00000001)){}
+    TIM1->SR &= 0xFFFFFFFE;
     flag1 = !(GPIOC->IDR & 1);
-    
+
     if(flag1){
         Timer_start(32);
-        while(!(TIM2->SR & 0x00000001)){}
-        TIM2->SR &= 0xFFFFFFFE;
+        while(!(TIM1->SR & 0x00000001)){}
+        TIM1->SR &= 0xFFFFFFFE;
         flag2 = (GPIOC->IDR & 1);
     }
     while(GPIOC->IDR&1){}
@@ -82,10 +83,10 @@ int DHT_READ(void){
     int i=0,j;
     for(j=0;j<8;j++){
         while(!(GPIOC->IDR & 1)){}          // if pc0 ==0 waiting
-        
+
         Timer_start(16);
-        while(!(TIM2->SR & 0x00000001)){}
-        TIM2->SR &= 0xFFFFFFFE;
+        while(!(TIM1->SR & 0x00000001)){}
+        TIM1->SR &= 0xFFFFFFFE;
 
         if(!(GPIOC->IDR & 1)){
 			i&= ~(1<<(7-j));   // write 0
@@ -129,24 +130,24 @@ int main(){
             //DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data);
             int sum = RH_Dec_Data+RH_Int_Data+Temp_Dec_Data+Temp_Int_Data;
             sum = sum & 0xff;
-            
-            //DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data); 
-            
+
+            //DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data);
+
             if(sum!=CheckSum) {
                 //MUTIDISPLAY(7414);
                 //DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data);
             } else {
-                DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data); 
+                DHT_DISPLAY(RH_Int_Data,RH_Dec_Data,Temp_Int_Data,Temp_Dec_Data);
             }
-            
+
             Timer_start(20000);
-            while(!(TIM2->SR & 0x00000001)){}
-            TIM2->SR &= 0xFFFFFFFE;
-            
+            while(!(TIM1->SR & 0x00000001)){}
+            TIM1->SR &= 0xFFFFFFFE;
+
             /*
             MUTIDISPLAY(Temp_Int_Data);
-            
-        
+
+
             MUTIDISPLAY(RH_Dec_Data);
             Timer_start(400000);
             while(!(TIM2->SR & 0x00000001)){}
@@ -166,7 +167,7 @@ int main(){
             */
         }
     }
-     
+
 /*
     while(1){
         Timer_start(399999*2);
