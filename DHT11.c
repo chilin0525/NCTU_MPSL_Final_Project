@@ -49,7 +49,7 @@ void INIT_DHT(){
     GPIOC->PUPDR |= 0b01;
     GPIOC->ODR &= 0xfffffffe;
 
-    Timer_start(7300);          // delay for 18ms <==> 7200
+    Timer_start(7200);          // delay for 18ms <==> 7200
     while(!(TIM1->SR & 0x00000001)){}
     TIM1->SR &= 0xFFFFFFFE;
 
